@@ -10,7 +10,7 @@ let ALL_POSTS_CACHE = [];
 document.addEventListener("DOMContentLoaded", () => {
     initThemeEngine();     // 1. 初始化系统时间/色调检测引擎
     initRainbowCanvas();   // 2. 注入动态鼠标彩虹
-    fetchAndParsePosts();  // 3. 抓取文章并运行解析器
+    fetchAndParsePosts();  // 3. 绕过API限制，通过Raw通道抓取文章
     initSearchEngine();    // 4. 启动即时搜索系统
 });
 
@@ -19,11 +19,9 @@ function initThemeEngine() {
     const themeBtn = document.getElementById("theme-toggle");
     const body = document.body;
 
-    // 自动判定系统是否处于深色偏好模式
     const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     const defaultTheme = systemPrefersDark ? "dark-mode" : "light-mode";
     
-    // 如果本地之前手动选过，以选过的为准，否则跟随系统
     const savedTheme = localStorage.getItem("blog-theme") || defaultTheme;
     body.className = savedTheme;
 
@@ -34,13 +32,6 @@ function initThemeEngine() {
         } else {
             body.classList.replace("light-mode", "dark-mode");
             localStorage.setItem("blog-theme", "dark-mode");
-        }
-    });
-
-    // 实时监听系统颜色模式的改变（比如到了晚间系统自动切换）
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
-        if (!localStorage.getItem("blog-theme")) { // 只有在用户没手动锁死主题的情况下才自动跟随
-            body.className = e.matches ? "dark-mode" : "light-mode";
         }
     });
 }
@@ -54,7 +45,7 @@ function parseFrontMatter(rawMdText, fallbackTitle) {
     let bodyText = rawMdText;
 
     if (match) {
-        bodyText = rawMdText.replace(match[0], ""); // 切除元数据头部，保留纯正文
+        bodyText = rawMdText.replace(match[0], ""); 
         const yamlLines = match[1].split("\n");
         yamlLines.forEach(line => {
             const parts = line.split(":");
@@ -65,7 +56,6 @@ function parseFrontMatter(rawMdText, fallbackTitle) {
                 if (key === "title") meta.title = value.replace(/^['"]|['"]$/g, "");
                 if (key === "description") meta.description = value.replace(/^['"]|['"]$/g, "");
                 if (key === "tags") {
-                    // 解析标签数组 [随笔, 前端]
                     meta.tags = value.replace(/[\[\]]/g, "").split(",").map(t => t.trim()).filter(t => t);
                 }
             }
@@ -74,45 +64,48 @@ function parseFrontMatter(rawMdText, fallbackTitle) {
     return { meta, bodyText };
 }
 
-// ==================== 3. 自动读取并建立检索库 ====================
+// ==================== 3. 免限流：通过 Raw 渠道自动读取并建立检索库 ====================
 async function fetchAndParsePosts() {
     const postsListContainer = document.getElementById("posts-list");
-    const apiUrl = `https://api.github.com/repos/${CONFIG.username}/${CONFIG.repo}/contents/${CONFIG.folder}`;
+    
+    // 核心改变：抛弃 GitHub API，改用无限流量的 Raw 路径读取我们建立的 list.json 索引
+    const rawBaseUrl = `https://raw.githubusercontent.com/${CONFIG.username}/${CONFIG.repo}/main/${CONFIG.folder}`;
+    const listUrl = `${rawBaseUrl}/list.json`;
 
     try {
-        const response = await fetch(apiUrl);
-        if (!response.ok) throw new Error("读取云端文章目录失败，请检查公开仓库设置");
+        const response = await fetch(listUrl);
+        if (!response.ok) throw new Error("读取文章索引 list.json 失败，请检查该文件是否存在于 posts/ 目录下");
         
-        const files = await response.json();
-        const mdFiles = files.filter(file => file.name.endsWith('.md'));
+        const fileNames = await response.json();
 
-        if (mdFiles.length === 0) {
-            postsListContainer.innerHTML = '<div class="loading">posts/ 目录下尚未投放文章哦 🌟</div>';
+        if (fileNames.length === 0) {
+            postsListContainer.innerHTML = '<div class="loading">list.json 中尚未登记任何文章 🌟</div>';
             return;
         }
 
-        // 并发请求所有文章的原始内容，用于建立本地全文搜索索引
-        const loadPromises = mdFiles.map(async (file) => {
-            const rawTitle = file.name.replace(".md", "");
+        // 批量并发获取文章原始 MD 文本
+        const loadPromises = fileNames.map(async (fileName) => {
+            const rawTitle = fileName.replace(".md", "");
+            const fileDownloadUrl = `${rawBaseUrl}/${encodeURIComponent(fileName)}`;
             try {
-                const res = await fetch(file.download_url);
+                const res = await fetch(fileDownloadUrl);
                 const rawText = await res.text();
                 const { meta, bodyText } = parseFrontMatter(rawText, rawTitle);
                 return {
-                    downloadUrl: file.download_url,
-                    filename: file.name,
+                    downloadUrl: fileDownloadUrl,
+                    filename: fileName,
                     title: meta.title,
                     description: meta.description,
                     tags: meta.tags,
-                    bodyText: bodyText // 用于正文搜索
+                    bodyText: bodyText 
                 };
             } catch (e) {
-                return { downloadUrl: file.download_url, filename: file.name, title: rawTitle, description: "文章加载失败", tags: [], bodyText: "" };
+                return { downloadUrl: fileDownloadUrl, filename: fileName, title: rawTitle, description: "文章加载失败", tags: [], bodyText: "" };
             }
         });
 
         ALL_POSTS_CACHE = await Promise.all(loadPromises);
-        renderPostsGrid(ALL_POSTS_CACHE); // 初次渲染
+        renderPostsGrid(ALL_POSTS_CACHE); 
 
     } catch (error) {
         console.error(error);
@@ -157,7 +150,6 @@ function initSearchEngine() {
             return;
         }
 
-        // 对 标题、简介、正文、标签 进行多维全文本穿透匹配
         const filtered = ALL_POSTS_CACHE.filter(post => {
             const matchTitle = post.title.toLowerCase().includes(query);
             const matchDesc = post.description.toLowerCase().includes(query);
@@ -184,7 +176,6 @@ async function loadPostContent(downloadUrl, currentTitle) {
         postsView.classList.add("hidden");
         contentView.classList.remove("hidden");
 
-        // 渲染文章：头部元数据区 + 正文 Markdown
         articleDetail.innerHTML = `
             <h1>${meta.title}</h1>
             <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 20px;">${meta.description}</p>
