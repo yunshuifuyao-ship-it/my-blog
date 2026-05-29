@@ -31,7 +31,7 @@ html, body {
     background-color: #0a0714;
 }
 
-/* ==================== 2. 全局与画布 ==================== */
+/* ==================== 2. 全局布局 ==================== */
 * {
     margin: 0;
     padding: 0;
@@ -71,7 +71,7 @@ body {
     backdrop-filter: blur(24px) saturate(190%);
     -webkit-backdrop-filter: blur(24px) saturate(190%);
     border: 1px solid var(--glass-border);
-    border-radius: 24px; /* 完美大圆角 */
+    border-radius: 24px; /* 完美大圆角菜单 */
     box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.04);
 }
 
@@ -85,7 +85,7 @@ body {
 .logo {
     font-size: 1.4rem;
     font-weight: 800;
-    color: var(--text-logo); /* 黑白智能转换，无彩色 */
+    color: var(--text-logo); /* 纯净黑白无彩色 */
     text-decoration: none;
     letter-spacing: -0.5px;
 }
@@ -133,7 +133,7 @@ body {
     color: var(--text-main);
     background: var(--glass-bg);
     border: 1px solid var(--glass-border);
-    border-radius: 20px; /* 圆角菜单风格 */
+    border-radius: 20px;
     outline: none;
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
@@ -146,7 +146,7 @@ body {
     background: var(--card-hover-bg);
 }
 
-/* ==================== 5. 文章网格卡片布局 ==================== */
+/* ==================== 5. 纯净卡片布局（只保留标题与时间） ==================== */
 .container {
     max-width: 1000px;
     margin: 50px auto;
@@ -159,65 +159,46 @@ body {
 .posts-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 30px;
+    gap: 20px; /* 紧凑美感间距 */
 }
 
 .post-card {
     display: flex;
     flex-direction: column;
+    justify-content: center;
     background: var(--card-bg);
     backdrop-filter: blur(16px) saturate(140%);
     -webkit-backdrop-filter: blur(16px) saturate(140%);
     border: 1px solid var(--glass-border);
-    border-radius: 24px; /* 保持圆角 */
-    padding: 28px;
+    border-radius: 18px; /* 舒缓大圆角卡片 */
+    padding: 24px;
     cursor: pointer;
     box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.02);
     transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.3s;
 }
 
 .post-card:hover {
-    transform: translateY(-6px);
+    transform: translateY(-4px);
     background: var(--card-hover-bg);
-    box-shadow: 0 20px 40px 0 rgba(0, 0, 0, 0.08);
+    box-shadow: 0 16px 32px 0 rgba(0, 0, 0, 0.06);
 }
 
 .post-title {
-    font-size: 1.35rem;
+    font-size: 1.25rem;
     font-weight: 700;
-    margin-bottom: 12px;
-    line-height: 1.4;
     color: var(--text-main);
+    line-height: 1.4;
+    margin-bottom: 8px; /* 给下方时间留出空隙 */
 }
 
-.post-description {
-    font-size: 0.95rem;
+/* 上传时间样式 */
+.post-date {
+    font-size: 0.85rem;
     color: var(--text-muted);
-    line-height: 1.6;
-    margin-bottom: 20px;
-    flex-grow: 1;
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
+    font-weight: 500;
 }
 
-.post-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-}
-
-.tag-badge {
-    font-size: 0.75rem;
-    font-weight: 600;
-    padding: 4px 10px;
-    background: rgba(99, 102, 241, 0.15);
-    color: #6366f1;
-    border-radius: 50px;
-}
-
-/* ==================== 6. 文章正文页 ==================== */
+/* ==================== 6. 文章内容展示页 ==================== */
 .btn-back {
     background: var(--card-bg);
     border: 1px solid var(--glass-border);

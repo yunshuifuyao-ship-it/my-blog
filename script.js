@@ -9,8 +9,8 @@ let ALL_POSTS_CACHE = [];
 
 document.addEventListener("DOMContentLoaded", () => {
     initThemeEngine();     // 1. 初始化系统颜色偏好感知
-    initRainbowCanvas();   // 2. 注入跟随鼠标的动态彩虹流光
-    fetchAndParsePosts();  // 3. 绕过API，通过带时间戳的Raw渠道同步 list.json
+    initRainbowCanvas();   // 2. 注入跟随鼠标移动的动态彩虹流光背景
+    fetchAndParsePosts();  // 3. 读取list.json，解析日期并执行智能排序
     initPerfectSearch();   // 4. 启动全新的完美中文避错搜索系统
 });
 
@@ -41,7 +41,8 @@ function parseFrontMatter(rawMdText, fallbackTitle) {
     const regex = /^---\r?\n([\s\S]*?)\r?\n---\r?\n/;
     const match = rawMdText.match(regex);
     
-    let meta = { title: fallbackTitle, description: "点击阅读正文...", tags: [] };
+    // 默认兜底日期为今天
+    let meta = { title: fallbackTitle, date: new Date().toISOString().split('T')[0] };
     let bodyText = rawMdText;
 
     if (match) {
@@ -54,17 +55,14 @@ function parseFrontMatter(rawMdText, fallbackTitle) {
                 let value = parts.slice(1).join(":").trim();
                 
                 if (key === "title") meta.title = value.replace(/^['"]|['"]$/g, "");
-                if (key === "description") meta.description = value.replace(/^['"]|['"]$/g, "");
-                if (key === "tags") {
-                    meta.tags = value.replace(/[\[\]]/g, "").split(",").map(t => t.trim()).filter(t => t);
-                }
+                if (key === "date") meta.date = value.replace(/^['"]|['"]$/g, "");
             }
         });
     }
     return { meta, bodyText };
 }
 
-// ==================== 3. 核心：通过时间戳免限流渠道拉取并渲染 ====================
+// ==================== 3. 核心：免限流防缓存拉取 + 智能时间排序 ====================
 async function fetchAndParsePosts() {
     const postsListContainer = document.getElementById("posts-list");
     const rawBaseUrl = `https://raw.githubusercontent.com/${CONFIG.username}/${CONFIG.repo}/main/${CONFIG.folder}`;
@@ -81,7 +79,7 @@ async function fetchAndParsePosts() {
             return;
         }
 
-        // 并发高流速拉取原始 MD 文本
+        // 并发批量拉取原始文本并解析
         const loadPromises = fileNames.map(async (fileName) => {
             const rawTitle = fileName.replace(".md", "");
             const fileDownloadUrl = `${rawBaseUrl}/${encodeURIComponent(fileName)}?_=${Date.now()}`;
@@ -93,16 +91,19 @@ async function fetchAndParsePosts() {
                     downloadUrl: fileDownloadUrl,
                     filename: fileName,
                     title: meta.title,
-                    description: meta.description,
-                    tags: meta.tags,
+                    date: meta.date, // 用于排序和显示
                     bodyText: bodyText 
                 };
             } catch (e) {
-                return { downloadUrl: fileDownloadUrl, filename: fileName, title: rawTitle, description: "文章拉取失败", tags: [], bodyText: "" };
+                return { downloadUrl: fileDownloadUrl, filename: fileName, title: rawTitle, date: "1970-01-01", bodyText: "" };
             }
         });
 
-        ALL_POSTS_CACHE = await Promise.all(loadPromises);
+        const unfilteredPosts = await Promise.all(loadPromises);
+        
+        // 🔥 核心逻辑：根据时间戳把文章从新到旧（降序）无缝全自动排序
+        ALL_POSTS_CACHE = unfilteredPosts.sort((a, b) => new Date(b.date) - new Date(a.date));
+        
         renderPostsGrid(ALL_POSTS_CACHE); 
 
     } catch (error) {
@@ -111,6 +112,7 @@ async function fetchAndParsePosts() {
     }
 }
 
+// 纯净卡片渲染（只挂载标题与时间）
 function renderPostsGrid(postsArray) {
     const postsListContainer = document.getElementById("posts-list");
     postsListContainer.innerHTML = "";
@@ -125,12 +127,9 @@ function renderPostsGrid(postsArray) {
         card.className = "post-card";
         card.onclick = () => loadPostContent(post.downloadUrl, post.title);
 
-        let tagsHtml = post.tags.map(tag => `<span class="tag-badge">${tag}</span>`).join("");
-
         card.innerHTML = `
             <h2 class="post-title">${post.title}</h2>
-            <p class="post-description">${post.description}</p>
-            <div class="post-tags">${tagsHtml}</div>
+            <div class="post-date">📅 发布于：${post.date}</div>
         `;
         postsListContainer.appendChild(card);
     });
@@ -141,28 +140,18 @@ function initPerfectSearch() {
     const searchInput = document.getElementById("search-input");
     if (!searchInput) return;
 
-    let isTyping = false; // 输入锁
+    let isTyping = false; 
 
-    // 当用户开始用输入法打字（拼音未定型）时触发
-    searchInput.addEventListener("compositionstart", () => {
-        isTyping = true;
-    });
-
-    // 当用户打完字，把词语选定并填入输入框时触发
+    searchInput.addEventListener("compositionstart", () => { isTyping = true; });
     searchInput.addEventListener("compositionend", (e) => {
         isTyping = false;
-        execSearch(e.target.value); // 选词结束，立刻触发搜索
+        execSearch(e.target.value); 
     });
-
-    // 常规字符键入
     searchInput.addEventListener("input", (e) => {
-        if (!isTyping) { 
-            execSearch(e.target.value); // 只有在非拼音状态下才运行搜索过滤
-        }
+        if (!isTyping) { execSearch(e.target.value); }
     });
 }
 
-// 全文多维检索执行器
 function execSearch(value) {
     const query = value.toLowerCase().trim();
     
@@ -173,10 +162,8 @@ function execSearch(value) {
 
     const filtered = ALL_POSTS_CACHE.filter(post => {
         const matchTitle = post.title.toLowerCase().includes(query);
-        const matchDesc = post.description.toLowerCase().includes(query);
         const matchBody = post.bodyText.toLowerCase().includes(query);
-        const matchTags = post.tags.some(tag => tag.toLowerCase().includes(query));
-        return matchTitle || matchDesc || matchBody || matchTags;
+        return matchTitle || matchBody;
     });
 
     renderPostsGrid(filtered);
@@ -198,7 +185,7 @@ async function loadPostContent(downloadUrl, currentTitle) {
 
         articleDetail.innerHTML = `
             <h1>${meta.title}</h1>
-            <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 20px;">${meta.description}</p>
+            <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 20px;">📅 发布时间：${meta.date}</p>
             <hr style="margin:25px 0; border:0; border-top:1px solid var(--glass-border);">
         ` + marked.parse(bodyText);
         
@@ -219,7 +206,7 @@ window.addEventListener("hashchange", () => {
     if (!window.location.hash) routeToHome();
 });
 
-// ==================== 6. 核心：动态彩虹流光 Canvas 动力学渲染 (跟随鼠标) ====================
+// ==================== 6. 完全流动的彩虹 Canvas 动力学背景 (跟随鼠标) ====================
 function initRainbowCanvas() {
     const canvas = document.getElementById("bg-canvas");
     if (!canvas) return;
@@ -228,7 +215,6 @@ function initRainbowCanvas() {
 
     window.addEventListener("resize", () => { width = (canvas.width = window.innerWidth); height = (canvas.height = window.innerHeight); });
 
-    // 4 组基础漂移环境色块
     const blobs = [
         { x: width * 0.2, y: height * 0.2, r: 350, color: "rgba(255, 0, 128, 0.45)", vx: 0.9, vy: 1.1 },
         { x: width * 0.8, y: height * 0.3, r: 450, color: "rgba(128, 0, 255, 0.38)", vx: -0.7, vy: 0.9 },
@@ -236,7 +222,6 @@ function initRainbowCanvas() {
         { x: width * 0.3, y: height * 0.8, r: 300, color: "rgba(0, 255, 128, 0.3)", vx: -0.4, vy: -0.8 }
     ];
 
-    // 随鼠标移动的核心渲染交互色块
     const mouseBlob = { x: width / 2, y: height / 2, targetX: width / 2, targetY: height / 2, r: 420, color: "rgba(255, 150, 0, 0.45)" };
     window.addEventListener("mousemove", (e) => { mouseBlob.targetX = e.clientX; mouseBlob.targetY = e.clientY; });
 
