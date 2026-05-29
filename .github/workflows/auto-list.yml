@@ -1,0 +1,31 @@
+name: 自动生成文章索引
+
+on:
+  push:
+    paths:
+      - 'posts/**' # 只有当 posts 文件夹发生变动时才触发
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 扫描 posts 目录并生成 list.json
+        run: |
+          cd posts
+          # 扫描所有 .md 文件并转换为标准 JSON 数组格式
+          ls *.md | jq -R . | jq -s . > list.json
+
+      - name: 自动提交并推送到仓库
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          git add posts/list.json
+          # 检查是否有文件变动，有则提交
+          git diff-index --quiet HEAD || git commit -m "chore: 自动化更新文章索引列表"
+          git push
