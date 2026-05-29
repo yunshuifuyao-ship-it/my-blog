@@ -7,7 +7,9 @@
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
-<body class="dark-mode"> <canvas id="bg-canvas"></canvas>
+<body class="dark-mode">
+
+    <canvas id="bg-canvas"></canvas>
 
     <nav class="navbar">
         <div class="nav-container">
@@ -27,6 +29,10 @@
 
     <main class="container">
         <section id="posts-view" class="view-section">
+            <div class="search-container">
+                <input type="text" id="search-input" placeholder="输入关键词，搜索文章标题、简要介绍、正文..." />
+            </div>
+
             <h1 class="section-title">最新文章</h1>
             <div id="posts-list" class="posts-grid">
                 <div class="loading">正在随风读取文章列表...</div>

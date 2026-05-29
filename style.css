@@ -1,38 +1,38 @@
 /* ==================== 1. 主题变量定义 ==================== */
-/* 默认深色模式 (Dark) */
 .dark-mode {
     --bg-base: #0a0714;
     --text-main: #f8fafc;
     --text-muted: #94a3b8;
-    --text-logo: #ffffff; /* 深色模式下名字纯白 */
+    --text-logo: #ffffff;
     --glass-bg: rgba(20, 16, 36, 0.45);
     --glass-border: rgba(255, 255, 255, 0.08);
     --card-bg: rgba(255, 255, 255, 0.06);
     --card-hover-bg: rgba(255, 255, 255, 0.12);
     --article-bg: rgba(15, 12, 30, 0.75);
+    --search-focus-glow: rgba(99, 102, 241, 0.4);
     --canvas-opacity: 0.85;
 }
 
-/* 浅色模式 (Light) */
 .light-mode {
     --bg-base: #f1f5f9;
     --text-main: #0f172a;
     --text-muted: #64748b;
-    --text-logo: #0f172a; /* 浅色模式下名字纯黑 */
+    --text-logo: #0f172a;
     --glass-bg: rgba(255, 255, 255, 0.55);
     --glass-border: rgba(15, 23, 42, 0.08);
     --card-bg: rgba(255, 255, 255, 0.65);
     --card-hover-bg: rgba(255, 255, 255, 0.9);
     --article-bg: rgba(255, 255, 255, 0.85);
-    --canvas-opacity: 0.4; /* 浅色模式降低流光透明度，保护视力 */
+    --search-focus-glow: rgba(99, 102, 241, 0.2);
+    --canvas-opacity: 0.45;
 }
 
-/* ==================== 2. 全局与基础布局 ==================== */
+/* ==================== 2. 全局与画布 ==================== */
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    transition: background-color 0.5s ease, border-color 0.5s ease, color 0.3s ease;
+    transition: background-color 0.4s ease, border-color 0.4s ease, box-shadow 0.3s ease;
 }
 
 body {
@@ -53,10 +53,9 @@ body {
     filter: blur(90px);
     opacity: var(--canvas-opacity);
     pointer-events: none;
-    transition: opacity 0.5s ease;
 }
 
-/* ==================== 3. 智能黑白 Logo 导航栏 ==================== */
+/* ==================== 3. 导航栏 ==================== */
 .navbar {
     position: sticky;
     top: 24px;
@@ -69,7 +68,7 @@ body {
     -webkit-backdrop-filter: blur(20px) saturate(190%);
     border: 1px solid var(--glass-border);
     border-radius: 24px;
-    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.05);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.04);
 }
 
 .nav-container {
@@ -79,17 +78,12 @@ body {
     padding: 16px 32px;
 }
 
-/* 纯净高级的名字样式 */
 .logo {
     font-size: 1.4rem;
     font-weight: 800;
-    color: var(--text-logo); /* 随深浅无缝变换 */
+    color: var(--text-logo);
     text-decoration: none;
     letter-spacing: -0.5px;
-}
-
-.logo:hover {
-    transform: scale(1.02);
 }
 
 .nav-links {
@@ -106,63 +100,75 @@ body {
     opacity: 0.8;
 }
 
-.nav-links a:hover {
-    opacity: 1;
-}
+.nav-links a:hover { opacity: 1; }
 
-/* 主题按钮小行星 */
 .theme-btn {
     background: transparent;
     border: none;
     color: var(--text-main);
     cursor: pointer;
     display: flex;
-    align-items: center;
-    justify-content: center;
     padding: 6px;
     border-radius: 50%;
 }
 
-.theme-btn:hover {
-    background: rgba(255,255,255,0.1);
-}
-
-/* 控制图标在不同模式下的显示隐藏 */
 .dark-mode .sun-icon, .light-mode .moon-icon { display: block; }
 .dark-mode .moon-icon, .light-mode .sun-icon { display: none; }
 
-/* ==================== 4. 博客主体与网格卡片 ==================== */
+/* ==================== 4. 搜索框设计 ==================== */
+.search-container {
+    margin-bottom: 40px;
+    width: 100%;
+}
+
+#search-input {
+    width: 100%;
+    padding: 16px 24px;
+    font-size: 1.05rem;
+    color: var(--text-main);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    outline: none;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.02);
+}
+
+#search-input:focus {
+    border-color: #6366f1;
+    box-shadow: 0 0 25px var(--search-focus-glow);
+    background: var(--card-hover-bg);
+}
+
+/* ==================== 5. 增强卡片布局与文章预览 ==================== */
 .container {
     max-width: 1000px;
-    margin: 60px auto;
+    margin: 50px auto;
     padding: 0 20px;
 }
 
 .hidden { display: none !important; }
-
-.section-title {
-    margin-bottom: 32px;
-    font-size: 2rem;
-    font-weight: 800;
-}
+.section-title { margin-bottom: 24px; font-size: 1.8rem; font-weight: 800; }
 
 .posts-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
     gap: 30px;
 }
 
-/* 毛玻璃卡片 */
 .post-card {
+    display: flex;
+    flex-direction: column;
     background: var(--card-bg);
     backdrop-filter: blur(16px) saturate(140%);
     -webkit-backdrop-filter: blur(16px) saturate(140%);
     border: 1px solid var(--glass-border);
     border-radius: 24px;
-    padding: 30px;
+    padding: 28px;
     cursor: pointer;
     box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.02);
-    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.3s, box-shadow 0.4s;
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.3s;
 }
 
 .post-card:hover {
@@ -179,15 +185,38 @@ body {
     color: var(--text-main);
 }
 
-.post-meta {
-    font-size: 0.85rem;
+/* 简要介绍（简介）预览区：限制最多显示三行 */
+.post-description {
+    font-size: 0.95rem;
     color: var(--text-muted);
+    line-height: 1.6;
+    margin-bottom: 20px;
+    flex-grow: 1;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
 }
 
-/* ==================== 5. 文章渲染页 ==================== */
+/* 标签组合区 */
+.post-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.tag-badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 4px 10px;
+    background: rgba(99, 102, 241, 0.15);
+    color: #6366f1;
+    border-radius: 50px;
+}
+
+/* ==================== 6. 文章渲染页 ==================== */
 .btn-back {
     background: var(--card-bg);
-    backdrop-filter: blur(10px);
     border: 1px solid var(--glass-border);
     padding: 8px 20px;
     border-radius: 50px;
@@ -205,25 +234,13 @@ body {
     border: 1px solid var(--glass-border);
     padding: 50px 40px;
     border-radius: 24px;
-    box-shadow: 0 20px 50px rgba(0,0,0,0.05);
+    box-shadow: 0 20px 50px rgba(0,0,0,0.04);
 }
 
-.markdown-body h1, .markdown-body h2 {
-    color: var(--text-main);
-    margin-bottom: 15px;
-}
+/* 丰富内部 Markdown 的排版映射 */
+.markdown-body h1 { font-size: 2.2rem; font-weight: 800; margin-bottom: 18px; color: var(--text-main); }
+.markdown-body h2 { font-size: 1.6rem; font-weight: 700; margin-top: 30px; margin-bottom: 14px; color: var(--text-main); }
+.markdown-body p { color: var(--text-main); opacity: 0.95; font-size: 1.05rem; line-height: 1.8; margin-bottom: 20px; }
+.markdown-body strong { font-weight: 700; color: #6366f1; } /* 优雅加重粗体显示 */
 
-.markdown-body p {
-    color: var(--text-main);
-    opacity: 0.9;
-    font-size: 1.05rem;
-    line-height: 1.8;
-    margin-bottom: 20px;
-}
-
-.loading {
-    grid-column: 1 / -1;
-    text-align: center;
-    color: var(--text-muted);
-    padding: 60px;
-}
+.loading { grid-column: 1 / -1; text-align: center; color: var(--text-muted); padding: 60px; }
