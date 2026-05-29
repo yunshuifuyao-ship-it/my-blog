@@ -1,15 +1,36 @@
 const CONFIG = {
-    username: "yunshuifuyao-ship-it", // 你的GitHub用户名
-    repo: "my-blog",                  // 你的仓库名
-    folder: "posts"                   // 投放文章的文件夹
+    username: "yunshuifuyao-ship-it",
+    repo: "my-blog",
+    folder: "posts"
 };
 
 document.addEventListener("DOMContentLoaded", () => {
-    initRainbowCanvas(); // 初始化彩虹背景
-    fetchPostsList();    // 自动抓取文章
+    initTheme();          // 1. 初始化深浅色系统
+    initRainbowCanvas();   // 2. 注入动态鼠标彩虹
+    fetchPostsList();      // 3. 自动同步文章
 });
 
-// 1. 核心：动态模糊 + 跟随鼠标的彩虹流光渲染
+// ==================== 1. 深浅色模式智能管理 ====================
+function initTheme() {
+    const themeBtn = document.getElementById("theme-toggle");
+    const body = document.body;
+
+    // 优先读取本地存储，如果没有则默认深色模式
+    const savedTheme = localStorage.getItem("blog-theme") || "dark-mode";
+    body.className = savedTheme;
+
+    themeBtn.addEventListener("click", () => {
+        if (body.classList.contains("dark-mode")) {
+            body.classList.replace("dark-mode", "light-mode");
+            localStorage.setItem("blog-theme", "light-mode");
+        } else {
+            body.classList.replace("light-mode", "dark-mode");
+            localStorage.setItem("blog-theme", "dark-mode");
+        }
+    });
+}
+
+// ==================== 2. 全动态模糊彩虹背景 (跟随鼠标) ====================
 function initRainbowCanvas() {
     const canvas = document.getElementById("bg-canvas");
     const ctx = canvas.getContext("2d");
@@ -22,35 +43,36 @@ function initRainbowCanvas() {
         height = (canvas.height = window.innerHeight);
     });
 
-    // 几组基础色彩控制点（模拟环境流光）
+    // 4组基础环境漂移色彩块
     const blobs = [
-        { x: width * 0.2, y: height * 0.2, r: 350, color: "rgba(255, 0, 128, 0.6)", vx: 1, vy: 1.2 },
-        { x: width * 0.8, y: height * 0.3, r: 450, color: "rgba(128, 0, 255, 0.5)", vx: -0.8, vy: 1 },
-        { x: width * 0.5, y: height * 0.7, r: 380, color: "rgba(0, 191, 255, 0.6)", vx: 1.1, vy: -0.7 },
-        { x: width * 0.3, y: height * 0.8, r: 300, color: "rgba(0, 255, 128, 0.4)", vx: -0.5, vy: -0.9 }
+        { x: width * 0.2, y: height * 0.2, r: 350, color: "rgba(255, 0, 128, 0.5)", vx: 0.9, vy: 1.1 },
+        { x: width * 0.8, y: height * 0.3, r: 450, color: "rgba(128, 0, 255, 0.42)", vx: -0.7, vy: 0.9 },
+        { x: width * 0.5, y: height * 0.7, r: 380, color: "rgba(0, 191, 255, 0.5)", vx: 1, vy: -0.6 },
+        { x: width * 0.3, y: height * 0.8, r: 300, color: "rgba(0, 255, 128, 0.35)", vx: -0.4, vy: -0.8 }
     ];
 
-    // 鼠标交互控制点
+    // 交互鼠标控制块
     const mouseBlob = { 
         x: width / 2, 
         y: height / 2, 
         targetX: width / 2, 
         targetY: height / 2, 
-        r: 400, 
-        color: "rgba(255, 165, 0, 0.55)" 
+        r: 420, 
+        color: "rgba(255, 150, 0, 0.5)" 
     };
 
-    // 全局监听鼠标移动
     window.addEventListener("mousemove", (e) => {
         mouseBlob.targetX = e.clientX;
         mouseBlob.targetY = e.clientY;
     });
 
     function animate() {
-        ctx.fillStyle = "#0f0c1b"; // 使用深色背景作为流光的底色
+        // 动态读取当前页面的底色用于画布清空，保证色彩对比纯净
+        const isDark = document.body.classList.contains("dark-mode");
+        ctx.fillStyle = isDark ? "#0a0714" : "#f1f5f9"; 
         ctx.fillRect(0, 0, width, height);
 
-        // 渲染基础漂移彩虹色块
+        // 渲染环境漂移块
         blobs.forEach(blob => {
             blob.x += blob.vx;
             blob.y += blob.vy;
@@ -60,7 +82,7 @@ function initRainbowCanvas() {
 
             const grad = ctx.createRadialGradient(blob.x, blob.y, 0, blob.x, blob.y, blob.r);
             grad.addColorStop(0, blob.color);
-            grad.addColorStop(1, "rgba(15, 12, 27, 0)");
+            grad.addColorStop(1, isDark ? "rgba(10, 7, 20, 0)" : "rgba(241, 245, 249, 0)");
 
             ctx.beginPath();
             ctx.fillStyle = grad;
@@ -68,14 +90,14 @@ function initRainbowCanvas() {
             ctx.fill();
         });
 
-        // 渲染跟随鼠标的渐变色块（加入 0.08 的弹性缓动，让滑动更丝滑）
+        // 智能缓动跟随鼠标
         mouseBlob.x += (mouseBlob.targetX - mouseBlob.x) * 0.08;
         mouseBlob.y += (mouseBlob.targetY - mouseBlob.y) * 0.08;
 
         const mouseGrad = ctx.createRadialGradient(mouseBlob.x, mouseBlob.y, 0, mouseBlob.x, mouseBlob.y, mouseBlob.r);
         mouseGrad.addColorStop(0, mouseBlob.color);
-        mouseGrad.addColorStop(0.5, "rgba(255, 0, 255, 0.3)"); // 渐变混色
-        mouseGrad.addColorStop(1, "rgba(15, 12, 27, 0)");
+        mouseGrad.addColorStop(0.4, "rgba(236, 72, 153, 0.25)");
+        mouseGrad.addColorStop(1, isDark ? "rgba(10, 7, 20, 0)" : "rgba(241, 245, 249, 0)");
 
         ctx.beginPath();
         ctx.fillStyle = mouseGrad;
@@ -88,20 +110,20 @@ function initRainbowCanvas() {
     animate();
 }
 
-// 2. 自动读取 GitHub 目录下的文章
+// ==================== 3. 自动读取与解析文章列表 ====================
 async function fetchPostsList() {
     const postsListContainer = document.getElementById("posts-list");
     const apiUrl = `https://api.github.com/repos/${CONFIG.username}/${CONFIG.repo}/contents/${CONFIG.folder}`;
 
     try {
         const response = await fetch(apiUrl);
-        if (!response.ok) throw new Error("无法获取文章列表，请检查配置或路径");
+        if (!response.ok) throw new Error("读取云端文章目录失败，请检查公开仓库设置");
         
         const files = await response.json();
         const mdFiles = files.filter(file => file.name.endsWith('.md'));
 
         if (mdFiles.length === 0) {
-            postsListContainer.innerHTML = '<div class="loading">posts 文件夹里空空如也，快去投放新文章吧~</div>';
+            postsListContainer.innerHTML = '<div class="loading">posts/ 目录下尚未投放文章哦 🌟</div>';
             return;
         }
 
@@ -115,18 +137,18 @@ async function fetchPostsList() {
 
             card.innerHTML = `
                 <h2 class="post-title">${title}</h2>
-                <div class="post-meta">✨ 智能投放文档</div>
+                <div class="post-meta">✨ 自动化动态挂载</div>
             `;
             postsListContainer.appendChild(card);
         });
 
     } catch (error) {
         console.error(error);
-        postsListContainer.innerHTML = `<div class="loading" style="color:#ff4d4d;">加载失败: ${error.message}</div>`;
+        postsListContainer.innerHTML = `<div class="loading" style="color:#ef4444;">动态解析出错: ${error.message}</div>`;
     }
 }
 
-// 3. 加载文章并解析 Markdown
+// 加载正文
 async function loadPost(downloadUrl, title) {
     const postsView = document.getElementById("posts-view");
     const contentView = document.getElementById("content-view");
@@ -139,17 +161,15 @@ async function loadPost(downloadUrl, title) {
         postsView.classList.add("hidden");
         contentView.classList.remove("hidden");
 
-        // 渲染正文
-        articleDetail.innerHTML = `<h1>${title}</h1><hr style="margin:25px 0; border:0; border-top:1px solid rgba(0,0,0,0.08);">` + marked.parse(mdText);
+        articleDetail.innerHTML = `<h1>${title}</h1><hr style="margin:25px 0; border:0; border-top:1px solid var(--glass-border);">` + marked.parse(mdText);
         
         window.location.hash = encodeURIComponent(title);
         window.scrollTo(0, 0);
     } catch (error) {
-        alert("文章加载失败");
+        alert("文章获取失败，请稍后重试");
     }
 }
 
-// 4. 路由回到主页
 function routeToHome() {
     document.getElementById("posts-view").classList.remove("hidden");
     document.getElementById("content-view").classList.add("hidden");
