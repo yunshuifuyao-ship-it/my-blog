@@ -8,10 +8,10 @@ const CONFIG = {
 let ALL_POSTS_CACHE = [];
 
 document.addEventListener("DOMContentLoaded", () => {
-    initThemeEngine();     // 1. 初始化系统/时间色调检测引擎
-    initRainbowCanvas();   // 2. 注入动态鼠标彩虹
-    fetchAndParsePosts();  // 3. 彻底绕过API限制，改走无限流量的Raw通道
-    initSearchEngine();    // 4. 启动即时搜索系统
+    initThemeEngine();     // 1. 初始化系统颜色偏好感知
+    initRainbowCanvas();   // 2. 注入跟随鼠标的动态彩虹流光
+    fetchAndParsePosts();  // 3. 绕过API，通过带时间戳的Raw渠道同步 list.json
+    initPerfectSearch();   // 4. 启动全新的完美中文避错搜索系统
 });
 
 // ==================== 1. 自动跟随系统颜色偏好 ====================
@@ -19,7 +19,6 @@ function initThemeEngine() {
     const themeBtn = document.getElementById("theme-toggle");
     const body = document.body;
 
-    // 自动判定系统是否处于深色偏好模式
     const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     const defaultTheme = systemPrefersDark ? "dark-mode" : "light-mode";
     
@@ -65,30 +64,27 @@ function parseFrontMatter(rawMdText, fallbackTitle) {
     return { meta, bodyText };
 }
 
-// ==================== 3. 核心改变：通过 Raw 通道无限次读取文章 ====================
+// ==================== 3. 核心：通过时间戳免限流渠道拉取并渲染 ====================
 async function fetchAndParsePosts() {
     const postsListContainer = document.getElementById("posts-list");
-    
-    // 💡 注意这里：我们彻底抛弃了 api.github.com，改用完全不限流的 raw.githubusercontent.com
-    // 它会直接去读取你的机器人自动生成的那个 list.json！
     const rawBaseUrl = `https://raw.githubusercontent.com/${CONFIG.username}/${CONFIG.repo}/main/${CONFIG.folder}`;
-    const listUrl = `${rawBaseUrl}/list.json`;
+    const listUrl = `${rawBaseUrl}/list.json?_=${Date.now()}`;
 
     try {
         const response = await fetch(listUrl);
-        if (!response.ok) throw new Error("读取文章索引 list.json 失败。请确保你的 yml 机器人已经运行成功并生成了该文件。");
+        if (!response.ok) throw new Error("云端未检测到磁贴索引文件 list.json");
         
         const fileNames = await response.json();
 
         if (fileNames.length === 0) {
-            postsListContainer.innerHTML = '<div class="loading">list.json 中尚未登记任何文章 🌟</div>';
+            postsListContainer.innerHTML = '<div class="loading">目前 posts 目录下没有检测到文章 🌟</div>';
             return;
         }
 
-        // 批量并发获取文章原始 MD 文本
+        // 并发高流速拉取原始 MD 文本
         const loadPromises = fileNames.map(async (fileName) => {
             const rawTitle = fileName.replace(".md", "");
-            const fileDownloadUrl = `${rawBaseUrl}/${encodeURIComponent(fileName)}`;
+            const fileDownloadUrl = `${rawBaseUrl}/${encodeURIComponent(fileName)}?_=${Date.now()}`;
             try {
                 const res = await fetch(fileDownloadUrl);
                 const rawText = await res.text();
@@ -102,7 +98,7 @@ async function fetchAndParsePosts() {
                     bodyText: bodyText 
                 };
             } catch (e) {
-                return { downloadUrl: fileDownloadUrl, filename: fileName, title: rawTitle, description: "文章加载失败", tags: [], bodyText: "" };
+                return { downloadUrl: fileDownloadUrl, filename: fileName, title: rawTitle, description: "文章拉取失败", tags: [], bodyText: "" };
             }
         });
 
@@ -111,11 +107,10 @@ async function fetchAndParsePosts() {
 
     } catch (error) {
         console.error(error);
-        postsListContainer.innerHTML = `<div class="loading" style="color:#ef4444;">动态解析出错: ${error.message}</div>`;
+        postsListContainer.innerHTML = `<div class="loading" style="color:#ef4444;">数据加载失败: ${error.message}</div>`;
     }
 }
 
-// 渲染网格视图
 function renderPostsGrid(postsArray) {
     const postsListContainer = document.getElementById("posts-list");
     postsListContainer.innerHTML = "";
@@ -141,31 +136,53 @@ function renderPostsGrid(postsArray) {
     });
 }
 
-// ==================== 4. 即时搜索引擎逻辑 ====================
-function initSearchEngine() {
+// ==================== 4. 完善后的即时搜索系统 (完美支持中文输入法) ====================
+function initPerfectSearch() {
     const searchInput = document.getElementById("search-input");
     if (!searchInput) return;
+
+    let isTyping = false; // 输入锁
+
+    // 当用户开始用输入法打字（拼音未定型）时触发
+    searchInput.addEventListener("compositionstart", () => {
+        isTyping = true;
+    });
+
+    // 当用户打完字，把词语选定并填入输入框时触发
+    searchInput.addEventListener("compositionend", (e) => {
+        isTyping = false;
+        execSearch(e.target.value); // 选词结束，立刻触发搜索
+    });
+
+    // 常规字符键入
     searchInput.addEventListener("input", (e) => {
-        const query = e.target.value.toLowerCase().trim();
-        
-        if (!query) {
-            renderPostsGrid(ALL_POSTS_CACHE);
-            return;
+        if (!isTyping) { 
+            execSearch(e.target.value); // 只有在非拼音状态下才运行搜索过滤
         }
-
-        const filtered = ALL_POSTS_CACHE.filter(post => {
-            const matchTitle = post.title.toLowerCase().includes(query);
-            const matchDesc = post.description.toLowerCase().includes(query);
-            const matchBody = post.bodyText.toLowerCase().includes(query);
-            const matchTags = post.tags.some(tag => tag.toLowerCase().includes(query));
-            return matchTitle || matchDesc || matchBody || matchTags;
-        });
-
-        renderPostsGrid(filtered);
     });
 }
 
-// ==================== 5. 文章装载页与路由 ====================
+// 全文多维检索执行器
+function execSearch(value) {
+    const query = value.toLowerCase().trim();
+    
+    if (!query) {
+        renderPostsGrid(ALL_POSTS_CACHE);
+        return;
+    }
+
+    const filtered = ALL_POSTS_CACHE.filter(post => {
+        const matchTitle = post.title.toLowerCase().includes(query);
+        const matchDesc = post.description.toLowerCase().includes(query);
+        const matchBody = post.bodyText.toLowerCase().includes(query);
+        const matchTags = post.tags.some(tag => tag.toLowerCase().includes(query));
+        return matchTitle || matchDesc || matchBody || matchTags;
+    });
+
+    renderPostsGrid(filtered);
+}
+
+// ==================== 5. 文章页面装载与路由 ====================
 async function loadPostContent(downloadUrl, currentTitle) {
     const postsView = document.getElementById("posts-view");
     const contentView = document.getElementById("content-view");
@@ -188,7 +205,7 @@ async function loadPostContent(downloadUrl, currentTitle) {
         window.location.hash = encodeURIComponent(meta.title);
         window.scrollTo(0, 0);
     } catch (error) {
-        alert("文章获取失败");
+        alert("文章内容装载失败");
     }
 }
 
@@ -202,7 +219,7 @@ window.addEventListener("hashchange", () => {
     if (!window.location.hash) routeToHome();
 });
 
-// ==================== 6. 彩虹流光 Canvas 动力学引擎 ====================
+// ==================== 6. 核心：动态彩虹流光 Canvas 动力学渲染 (跟随鼠标) ====================
 function initRainbowCanvas() {
     const canvas = document.getElementById("bg-canvas");
     if (!canvas) return;
@@ -211,6 +228,7 @@ function initRainbowCanvas() {
 
     window.addEventListener("resize", () => { width = (canvas.width = window.innerWidth); height = (canvas.height = window.innerHeight); });
 
+    // 4 组基础漂移环境色块
     const blobs = [
         { x: width * 0.2, y: height * 0.2, r: 350, color: "rgba(255, 0, 128, 0.45)", vx: 0.9, vy: 1.1 },
         { x: width * 0.8, y: height * 0.3, r: 450, color: "rgba(128, 0, 255, 0.38)", vx: -0.7, vy: 0.9 },
@@ -218,6 +236,7 @@ function initRainbowCanvas() {
         { x: width * 0.3, y: height * 0.8, r: 300, color: "rgba(0, 255, 128, 0.3)", vx: -0.4, vy: -0.8 }
     ];
 
+    // 随鼠标移动的核心渲染交互色块
     const mouseBlob = { x: width / 2, y: height / 2, targetX: width / 2, targetY: height / 2, r: 420, color: "rgba(255, 150, 0, 0.45)" };
     window.addEventListener("mousemove", (e) => { mouseBlob.targetX = e.clientX; mouseBlob.targetY = e.clientY; });
 
