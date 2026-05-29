@@ -8,9 +8,9 @@ const CONFIG = {
 let ALL_POSTS_CACHE = [];
 
 document.addEventListener("DOMContentLoaded", () => {
-    initThemeEngine();     // 1. 初始化系统时间/色调检测引擎
+    initThemeEngine();     // 1. 初始化系统/时间色调检测引擎
     initRainbowCanvas();   // 2. 注入动态鼠标彩虹
-    fetchAndParsePosts();  // 3. 绕过API限制，通过Raw通道抓取文章
+    fetchAndParsePosts();  // 3. 彻底绕过API限制，改走无限流量的Raw通道
     initSearchEngine();    // 4. 启动即时搜索系统
 });
 
@@ -19,6 +19,7 @@ function initThemeEngine() {
     const themeBtn = document.getElementById("theme-toggle");
     const body = document.body;
 
+    // 自动判定系统是否处于深色偏好模式
     const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     const defaultTheme = systemPrefersDark ? "dark-mode" : "light-mode";
     
@@ -64,17 +65,18 @@ function parseFrontMatter(rawMdText, fallbackTitle) {
     return { meta, bodyText };
 }
 
-// ==================== 3. 免限流：通过 Raw 渠道自动读取并建立检索库 ====================
+// ==================== 3. 核心改变：通过 Raw 通道无限次读取文章 ====================
 async function fetchAndParsePosts() {
     const postsListContainer = document.getElementById("posts-list");
     
-    // 核心改变：抛弃 GitHub API，改用无限流量的 Raw 路径读取我们建立的 list.json 索引
+    // 💡 注意这里：我们彻底抛弃了 api.github.com，改用完全不限流的 raw.githubusercontent.com
+    // 它会直接去读取你的机器人自动生成的那个 list.json！
     const rawBaseUrl = `https://raw.githubusercontent.com/${CONFIG.username}/${CONFIG.repo}/main/${CONFIG.folder}`;
     const listUrl = `${rawBaseUrl}/list.json`;
 
     try {
         const response = await fetch(listUrl);
-        if (!response.ok) throw new Error("读取文章索引 list.json 失败，请检查该文件是否存在于 posts/ 目录下");
+        if (!response.ok) throw new Error("读取文章索引 list.json 失败。请确保你的 yml 机器人已经运行成功并生成了该文件。");
         
         const fileNames = await response.json();
 
@@ -142,6 +144,7 @@ function renderPostsGrid(postsArray) {
 // ==================== 4. 即时搜索引擎逻辑 ====================
 function initSearchEngine() {
     const searchInput = document.getElementById("search-input");
+    if (!searchInput) return;
     searchInput.addEventListener("input", (e) => {
         const query = e.target.value.toLowerCase().trim();
         
@@ -202,6 +205,7 @@ window.addEventListener("hashchange", () => {
 // ==================== 6. 彩虹流光 Canvas 动力学引擎 ====================
 function initRainbowCanvas() {
     const canvas = document.getElementById("bg-canvas");
+    if (!canvas) return;
     const ctx = canvas.getContext("2d");
     let width = (canvas.width = window.innerWidth), height = (canvas.height = window.innerHeight);
 
