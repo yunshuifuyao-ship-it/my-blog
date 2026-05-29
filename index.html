@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>云水扶摇的个人博客</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+
+    <canvas id="bg-canvas"></canvas>
+
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="#" class="logo" onclick="routeToHome()">云水扶摇</a>
+            <ul class="nav-links">
+                <li><a href="#" onclick="routeToHome()">首页</a></li>
+                <li><a href="https://github.com/yunshuifuyao-ship-it/my-blog" target="_blank">GitHub</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        <section id="posts-view" class="view-section">
+            <h1 class="section-title">最新文章</h1>
+            <div id="posts-list" class="posts-grid">
+                <div class="loading">正在随风读取文章列表...</div>
+            </div>
+        </section>
+
+        <section id="content-view" class="view-section hidden">
+            <button class="btn-back" onclick="routeToHome()">← 返回首页</button>
+            <article id="article-detail" class="markdown-body">
+                </article>
+        </section>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>
